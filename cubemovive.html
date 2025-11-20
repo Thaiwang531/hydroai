@@ -1,0 +1,386 @@
+<!DOCTYPE html>  
+<html lang="zh-CN">  
+<head>  
+    <meta charset="UTF-8">  
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">  
+    <title>立方体动画演示 - 自动播放版</title>  
+    <style>  
+        body { margin: 0; overflow: hidden; font-family: 'Microsoft YaHei', sans-serif; background-color: #E0F7FA; }  
+          
+        /* 字幕区域 */  
+        #caption-container {  
+            position: absolute;  
+            bottom: 10%;  
+            left: 50%;  
+            transform: translateX(-50%);  
+            width: 80%;  
+            max-width: 800px;  
+            background: rgba(255, 255, 255, 0.9);  
+            padding: 20px;  
+            border-radius: 20px;  
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);  
+            text-align: center;  
+            border: 3px solid #00BCD4;  
+            transition: all 0.5s;  
+        }  
+  
+        #main-text {  
+            font-size: 28px;  
+            font-weight: bold;  
+            color: #333;  
+            margin-bottom: 10px;  
+        }  
+  
+        #sub-text {  
+            font-size: 18px;  
+            color: #0097A7;  
+            font-weight: bold;  
+        }  
+  
+        /* 进度条 */  
+        #progress-bar {  
+            position: absolute;  
+            bottom: 0;  
+            left: 0;  
+            height: 5px;  
+            background: #FF9800;  
+            width: 0%;  
+            transition: width 0.1s linear;  
+        }  
+  
+        /* 角标 */  
+        #badge {  
+            position: absolute;  
+            top: 20px;  
+            left: 20px;  
+            background: #FF6B6B;  
+            color: white;  
+            padding: 10px 20px;  
+            border-radius: 30px;  
+            font-weight: bold;  
+            box-shadow: 0 4px 10px rgba(255, 107, 107, 0.4);  
+        }  
+    </style>  
+    <script type="importmap">  
+        {  
+            "imports": {  
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",  
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"  
+            }  
+        }  
+    </script>  
+</head>  
+<body>  
+  
+    <div id="badge">🎬 自动演示模式</div>  
+  
+    <div id="caption-container">  
+        <div id="main-text">准备开始...</div>  
+        <div id="sub-text">请仔细观察屏幕</div>  
+        <div id="progress-bar"></div>  
+    </div>  
+  
+    <script type="module">  
+        import * as THREE from 'three';  
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';  
+  
+        // --- 场景设置 ---  
+        const scene = new THREE.Scene();  
+        scene.background = new THREE.Color(0xE0F7FA);  
+  
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);  
+        camera.position.set(10, 10, 14);  
+  
+        const renderer = new THREE.WebGLRenderer({ antialias: true });  
+        renderer.setSize(window.innerWidth, window.innerHeight);  
+        renderer.shadowMap.enabled = true;  
+        document.body.appendChild(renderer.domElement);  
+  
+        // 灯光  
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);  
+        scene.add(ambientLight);  
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);  
+        dirLight.position.set(5, 10, 7);  
+        dirLight.castShadow = true;  
+        scene.add(dirLight);  
+  
+        // 控制器 (保留自动旋转，但也允许手动拖拽)  
+        const controls = new OrbitControls(camera, renderer.domElement);  
+        controls.enableDamping = true;  
+        controls.autoRotate = true; // 开启自动旋转镜头  
+        controls.autoRotateSpeed = 1.0;   
+  
+        // 地面  
+        const gridHelper = new THREE.GridHelper(30, 30, 0x888888, 0xbbbbbb);  
+        scene.add(gridHelper);  
+  
+        // --- 对象组 ---  
+        const groupVolume = new THREE.Group();  
+        const groupNet = new THREE.Group();  
+        scene.add(groupVolume);  
+        scene.add(groupNet);  
+  
+        // --- 1. 积木生成逻辑 ---  
+        let lastDim = { l:0, w:0, h:0 };  
+  
+        function createBlocks(L, W, H) {  
+            // 只有当尺寸变化时才重新生成，节省性能  
+            if (L === lastDim.l && W === lastDim.w && H === lastDim.h) return;  
+            lastDim = { l:L, w:W, h:H };  
+  
+            // 清空  
+            while(groupVolume.children.length > 0) groupVolume.remove(groupVolume.children[0]);  
+  
+            const geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);  
+            const material = new THREE.MeshStandardMaterial({ color: 0xFFEB3B });  
+            const edgesGeo = new THREE.EdgesGeometry(geometry);  
+            const edgesMat = new THREE.LineBasicMaterial({ color: 0xD3A600 });  
+  
+            const offsetX = (L - 1) / 2;  
+            const offsetZ = (W - 1) / 2;  
+  
+            for (let x = 0; x < L; x++) {  
+                for (let y = 0; y < H; y++) {  
+                    for (let z = 0; z < W; z++) {  
+                        const cube = new THREE.Mesh(geometry, material);  
+                        cube.position.set(x - offsetX, y + 0.5, z - offsetZ);  
+                          
+                        // 简单的入场动画效果  
+                        cube.scale.set(0,0,0);  
+                          
+                        // 边框  
+                        const line = new THREE.LineSegments(edgesGeo, edgesMat);  
+                        cube.add(line);  
+                          
+                        groupVolume.add(cube);  
+                    }  
+                }  
+            }  
+        }  
+  
+        // 简单的缩放动画更新  
+        function updateBlockAnimation() {  
+            groupVolume.children.forEach(cube => {  
+                if (cube.scale.x < 1) {  
+                    cube.scale.addScalar(0.1);  
+                }  
+            });  
+        }  
+  
+        // --- 2. 展开图生成逻辑 (标准十字) ---  
+        let netGroups = [];  
+          
+        function createNet() {  
+            if (groupNet.children.length > 0) return; // 已经创建过  
+  
+            // 辅助：创建带数字的面  
+            function createFaceMesh(num) {  
+                const canvas = document.createElement('canvas');  
+                canvas.width = 128; canvas.height = 128;  
+                const ctx = canvas.getContext('2d');  
+                ctx.fillStyle = '#FFCC80'; ctx.fillRect(0,0,128,128);  
+                ctx.strokeStyle = '#EF6C00'; ctx.lineWidth = 8; ctx.strokeRect(0,0,128,128);  
+                ctx.fillStyle = '#E65100'; ctx.font = 'bold 60px Arial';  
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(num, 64, 64);  
+                const mesh = new THREE.Mesh(  
+                    new THREE.PlaneGeometry(1.5, 1.5), // 稍微大一点  
+                    new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(canvas), side: THREE.DoubleSide })  
+                );  
+                return mesh;  
+            }  
+  
+            // 递归构建简单的十字展开图  
+            // 结构: Root(1) -> U(2), D(4), L(5), R(3)->R(6)  
+              
+            const root = new THREE.Group();  
+            root.position.y = 0.05; // 离地  
+            const m1 = createFaceMesh(1); m1.rotation.x = -Math.PI/2; root.add(m1);  
+              
+            function addLimb(parent, dir, num) {  
+                const g = new THREE.Group();  
+                const m = createFaceMesh(num);  
+                // 关节位置 (基于1.5的大小)  
+                const size = 1.5;  
+                const half = size/2;  
+  
+                if(dir==='u') { g.position.set(0, 0, -half); m.position.set(0, -half, 0); } // 注意3D空间方向  
+                // 修正逻辑：平面平铺在XZ平面。  
+                // Root在 0,0. U在 0, -size(Z).   
+                // 旋转轴：连接处。  
+                  
+                // 重新简化逻辑：  
+                // 关节 Group 在连接线。 Mesh 相对于关节偏移。  
+                  
+                // U (上) -> Z负方向  
+                if(dir==='u') { g.position.z = -half; m.position.z = -half; }   
+                // D (下) -> Z正方向  
+                if(dir==='d') { g.position.z = half; m.position.z = half; }  
+                // L (左) -> X负方向  
+                if(dir==='l') { g.position.x = -half; m.position.x = -half; }  
+                // R (右) -> X正方向  
+                if(dir==='r') { g.position.x = half; m.position.x = half; }  
+  
+                m.rotation.x = -Math.PI/2; // 躺平  
+                  
+                g.userData = { dir: dir };  
+                g.add(m);  
+                parent.add(g);  
+                netGroups.push(g);  
+                return m; // 返回mesh作为可能的父级（虽然这里只用group做父级）  
+            }  
+  
+            // 构建树  
+            const size = 1.5;  
+            const half = size/2;  
+              
+            // 1. 根节点 Mesh  
+            // 2. 子节点 (Group)  
+              
+            // Up (2)  
+            const g2 = new THREE.Group(); g2.position.z = -half;   
+            const m2 = createFaceMesh(2); m2.position.z = -half; m2.rotation.x = -Math.PI/2;  
+            g2.add(m2); g2.userData = {dir:'u'}; root.add(g2); netGroups.push(g2);  
+  
+            // Down (4)  
+            const g4 = new THREE.Group(); g4.position.z = half;  
+            const m4 = createFaceMesh(4); m4.position.z = half; m4.rotation.x = -Math.PI/2;  
+            g4.add(m4); g4.userData = {dir:'d'}; root.add(g4); netGroups.push(g4);  
+  
+            // Left (5)  
+            const g5 = new THREE.Group(); g5.position.x = -half;  
+            const m5 = createFaceMesh(5); m5.position.x = -half; m5.rotation.x = -Math.PI/2;  
+            g5.add(m5); g5.userData = {dir:'l'}; root.add(g5); netGroups.push(g5);  
+  
+            // Right (3)  
+            const g3 = new THREE.Group(); g3.position.x = half;  
+            const m3 = createFaceMesh(3); m3.position.x = half; m3.rotation.x = -Math.PI/2;  
+            g3.add(m3); g3.userData = {dir:'r'}; root.add(g3); netGroups.push(g3);  
+  
+            // Right -> Right (6) (挂在 m3 上? 不，挂在 g3 里的 m3 位置?   
+            // 挂在 g3 上，位置要偏移)  
+            // 简单点，挂在 g3 内部，位置相对于 g3 原点是 x=size  
+            const g6 = new THREE.Group(); g6.position.x = size; // 这里的x是相对于g3的  
+            const m6 = createFaceMesh(6); m6.position.x = half; m6.rotation.x = -Math.PI/2;  
+            g6.add(m6); g6.userData = {dir:'r'}; g3.add(g6); netGroups.push(g6); // 注意这里加到了 g3  
+  
+            groupNet.add(root);  
+        }  
+  
+        function updateNetFold(percent) {  
+            const angle = (percent / 100) * (Math.PI / 2);  
+            netGroups.forEach(g => {  
+                const d = g.userData.dir;  
+                // 向上折起 (Box closing)  
+                if(d==='u') g.rotation.x = angle;  // Z负，绕X转  
+                if(d==='d') g.rotation.x = -angle; // Z正，绕X反转  
+                if(d==='l') g.rotation.z = -angle; // X负，绕Z转 (注意坐标轴)  
+                if(d==='r') g.rotation.z = angle;  // X正  
+            });  
+        }  
+  
+        // --- 3. 导演系统 (Animation Loop) ---  
+          
+        const captionMain = document.getElementById('main-text');  
+        const captionSub = document.getElementById('sub-text');  
+        const progressBar = document.getElementById('progress-bar');  
+  
+        const LOOP_DURATION = 30; // 总时长30秒  
+  
+        function updateTimeline() {  
+            const time = (Date.now() % (LOOP_DURATION * 1000)) / 1000;  
+            const progress = (time / LOOP_DURATION) * 100;  
+            progressBar.style.width = `${progress}%`;  
+  
+            // 剧本阶段  
+            if (time < 4) {  
+                // Phase 0: Intro  
+                captionMain.innerText = "🧊 认识体积";  
+                captionSub.innerText = "这是 1 个单位的小正方体";  
+                groupVolume.visible = true; groupNet.visible = false;  
+                createBlocks(1, 1, 1);  
+            }   
+            else if (time < 9) {  
+                // Phase 1: 变长  
+                captionMain.innerText = "📐 第一步：变长";  
+                captionSub.innerText = "长 = 4，现在有 4 个方块";  
+                createBlocks(4, 1, 1);  
+            }  
+            else if (time < 14) {  
+                // Phase 2: 变宽  
+                captionMain.innerText = "📐 第二步：变宽";  
+                captionSub.innerText = "宽 = 3，铺满一层 (4 × 3 = 12个)";  
+                createBlocks(4, 3, 1);  
+            }  
+            else if (time < 20) {  
+                // Phase 3: 变高  
+                captionMain.innerText = "📦 第三步：变高 (体积)";  
+                captionSub.innerText = "高 = 3，一共三层 (12 × 3 = 36个)";  
+                createBlocks(4, 3, 3);  
+            }  
+            else if (time < 22) {  
+                // Transition  
+                captionMain.innerText = "✨ 接下来...";  
+                captionSub.innerText = "我们要把它拆开看看！";  
+                // groupVolume.visible = false; // 闪烁一下？  
+            }  
+            else {  
+                // Phase 4: 展开图  
+                groupVolume.visible = false;  
+                groupNet.visible = true;  
+                createNet();  
+  
+                // 计算折叠动画   
+                // 22s -> 24s (Unfold: 100% -> 0%)  
+                // 24s -> 26s (Wait)  
+                // 26s -> 29s (Fold: 0% -> 100%)  
+                  
+                let foldPercent = 0;  
+                if (time < 24) {  
+                    // 刚开始是立方体，慢慢展开  
+                    captionMain.innerText = "📄 展开";  
+                    captionSub.innerText = "沿着棱剪开，变成平面图";  
+                    // map time 22->24 to 100->0  
+                    const p = (time - 22) / 2;   
+                    foldPercent = 100 * (1 - p);  
+                } else if (time < 26) {  
+                    // 展开状态展示  
+                    captionMain.innerText = "👀 观察";  
+                    captionSub.innerText = "这叫“立方体展开图”";  
+                    foldPercent = 0;  
+                } else {  
+                    // 折叠回去  
+                    captionMain.innerText = "📦 折叠";  
+                    captionSub.innerText = "围起来，变回正方体！";  
+                    // map time 26->29 to 0->100  
+                    const p = (time - 26) / 3;  
+                    foldPercent = Math.min(100, p * 100);  
+                }  
+                  
+                updateNetFold(foldPercent);  
+            }  
+        }  
+  
+  
+        // --- 渲染循环 ---  
+        function animate() {  
+            requestAnimationFrame(animate);  
+              
+            controls.update(); // 处理自动旋转  
+            updateTimeline();  
+            updateBlockAnimation();  
+  
+            renderer.render(scene, camera);  
+        }  
+  
+        // 窗口自适应  
+        window.addEventListener('resize', () => {  
+            camera.aspect = window.innerWidth / window.innerHeight;  
+            camera.updateProjectionMatrix();  
+            renderer.setSize(window.innerWidth, window.innerHeight);  
+        });  
+  
+        animate();  
+  
+    </script>  
+</body>  
+</html>  

@@ -1,0 +1,372 @@
+<!DOCTYPE html>  
+<html lang="zh-CN">  
+<head>  
+    <meta charset="UTF-8">  
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">  
+    <title>3D坐标大冒险 - 小学生版</title>  
+    <style>  
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #87CEEB; }  
+          
+        /* 控制面板样式 */  
+        #ui-container {  
+            position: absolute;  
+            top: 20px;  
+            left: 20px;  
+            background: rgba(255, 255, 255, 0.95);  
+            padding: 20px;  
+            border-radius: 15px;  
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);  
+            width: 320px;  
+            z-index: 10;  
+            border: 3px solid #FFD700;  
+        }  
+  
+        h1 { margin: 0 0 15px 0; font-size: 22px; color: #333; text-align: center; }  
+          
+        .input-group { margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; }  
+        .input-group label { font-weight: bold; font-size: 18px; }  
+          
+        /* 彩色标签 */  
+        .label-x { color: #ff3333; }  
+        .label-y { color: #3366ff; }  
+  
+        input[type="number"] {  
+            width: 80px;  
+            padding: 8px;  
+            font-size: 18px;  
+            border: 2px solid #ddd;  
+            border-radius: 8px;  
+            text-align: center;  
+        }  
+  
+        button {  
+            width: 100%;  
+            padding: 12px;  
+            background-color: #4CAF50;  
+            color: white;  
+            border: none;  
+            border-radius: 10px;  
+            font-size: 18px;  
+            cursor: pointer;  
+            transition: transform 0.1s, background-color 0.2s;  
+            font-weight: bold;  
+            box-shadow: 0 4px 0 #2E7D32;  
+        }  
+  
+        button:active {  
+            transform: translateY(4px);  
+            box-shadow: 0 0 0 #2E7D32;  
+        }  
+  
+        #message {  
+            margin-top: 15px;  
+            padding: 10px;  
+            background: #e8f5e9;  
+            border-radius: 8px;  
+            color: #2e7d32;  
+            font-size: 14px;  
+            line-height: 1.4;  
+        }  
+  
+        /* 坐标指示器气泡 */  
+        #bubble {  
+            position: absolute;  
+            background: white;  
+            padding: 5px 10px;  
+            border-radius: 20px;  
+            font-weight: bold;  
+            pointer-events: none;  
+            display: none;  
+            transform: translate(-50%, -100%);  
+            border: 2px solid #333;  
+            margin-top: -20px;  
+        }  
+  
+        .legend {  
+            margin-top: 10px;  
+            font-size: 12px;  
+            color: #666;  
+        }  
+        .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }  
+    </style>  
+    <!-- 引入 Three.js (使用CDN) -->  
+    <script type="importmap">  
+        {  
+            "imports": {  
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",  
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"  
+            }  
+        }  
+    </script>  
+</head>  
+<body>  
+  
+    <!-- UI 界面 -->  
+    <div id="ui-container">  
+        <h1>🗺️ 坐标寻宝图</h1>  
+          
+        <div class="input-group">  
+            <label class="label-x">🔴 X (左右):</label>  
+            <input type="number" id="inputX" value="3" min="-5" max="5">  
+        </div>  
+          
+        <div class="input-group">  
+            <label class="label-y">🔵 Y (前后):</label>  
+            <input type="number" id="inputY" value="2" min="-5" max="5">  
+        </div>  
+  
+        <button id="goBtn">🚀 出发！</button>  
+  
+        <div id="message">  
+            👋 嗨！我是小方。<br>  
+            请告诉我 <b>(X, Y)</b> 坐标，我就会走到那里去！<br>  
+            <b>(0, 0)</b> 是我的家哦。  
+        </div>  
+  
+        <div class="legend">  
+            <div><span class="dot" style="background:red;"></span>红色线是 X轴 (横向)</div>  
+            <div><span class="dot" style="background:blue;"></span>蓝色线是 Y轴 (纵向)</div>  
+        </div>  
+    </div>  
+  
+    <!-- 角色头顶的坐标气泡 -->  
+    <div id="bubble"></div>  
+  
+    <script type="module">  
+        import * as THREE from 'three';  
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';  
+        import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';  
+  
+        // --- 1. 场景初始化 ---  
+        const scene = new THREE.Scene();  
+        scene.background = new THREE.Color(0x87CEEB); // 天空蓝背景  
+        scene.fog = new THREE.Fog(0x87CEEB, 10, 50);  
+  
+        // 相机设置  
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);  
+        camera.position.set(0, 12, 15); // 放在高处俯视  
+        camera.lookAt(0, 0, 0);  
+  
+        const renderer = new THREE.WebGLRenderer({ antialias: true });  
+        renderer.setSize(window.innerWidth, window.innerHeight);  
+        renderer.shadowMap.enabled = true;  
+        document.body.appendChild(renderer.domElement);  
+  
+        // 灯光  
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);  
+        scene.add(ambientLight);  
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);  
+        dirLight.position.set(10, 20, 10);  
+        dirLight.castShadow = true;  
+        scene.add(dirLight);  
+  
+        // 控制器 (允许鼠标旋转场景)  
+        const controls = new OrbitControls(camera, renderer.domElement);  
+        controls.enableDamping = true;  
+        controls.maxPolarAngle = Math.PI / 2.2; // 不允许钻到地底  
+  
+        // --- 2. 创建网格世界 ---  
+          
+        // 地面  
+        const planeGeometry = new THREE.PlaneGeometry(20, 20);  
+        const planeMaterial = new THREE.MeshStandardMaterial({ color: 0xf0f0f0 });  
+        const plane = new THREE.Mesh(planeGeometry, planeMaterial);  
+        plane.rotation.x = -Math.PI / 2;  
+        plane.receiveShadow = true;  
+        scene.add(plane);  
+  
+        // 网格线  
+        const gridSize = 10; // 范围 -5 到 5  
+        const gridDivisions = 10;  
+        const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0xdddddd, 0xdddddd);  
+        scene.add(gridHelper);  
+  
+        // --- 3. 创建可视化的 X 和 Y 轴 (加粗) ---  
+          
+        function createAxisLine(color, start, end) {  
+            const material = new THREE.MeshBasicMaterial({ color: color });  
+            const geometry = new THREE.CylinderGeometry(0.05, 0.05, 10, 8);  
+            const cylinder = new THREE.Mesh(geometry, material);  
+              
+            // 计算中心点和旋转  
+            const center = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);  
+            cylinder.position.copy(center);  
+            cylinder.position.y = 0.01; // 稍微浮起一点点避免重叠  
+              
+            if (Math.abs(start.x - end.x) > 0.1) {  
+                cylinder.rotation.z = Math.PI / 2; // 横向 X轴  
+            } else {  
+                cylinder.rotation.x = Math.PI / 2; // 纵向 Z轴(也就是我们的Y)  
+            }  
+            return cylinder;  
+        }  
+  
+        // X轴 (红)  
+        const xAxis = createAxisLine(0xff3333, new THREE.Vector3(-5,0,0), new THREE.Vector3(5,0,0));  
+        scene.add(xAxis);  
+  
+        // Y轴 (蓝 - 在3D中实际是Z轴方向，但我们教做Y)  
+        const yAxis = createAxisLine(0x3366ff, new THREE.Vector3(0,0,-5), new THREE.Vector3(0,0,5));  
+        scene.add(yAxis);  
+  
+        // --- 4. 辅助文字标签 (生成贴图) ---  
+        // 使用Canvas生成数字贴图，避免字体文件加载问题  
+        function createTextSprite(text, color) {  
+            const canvas = document.createElement('canvas');  
+            const ctx = canvas.getContext('2d');  
+            canvas.width = 64;  
+            canvas.height = 64;  
+            ctx.fillStyle = color;  
+            ctx.font = "bold 40px Arial";  
+            ctx.textAlign = "center";  
+            ctx.textBaseline = "middle";  
+            ctx.fillText(text, 32, 32);  
+              
+            const texture = new THREE.CanvasTexture(canvas);  
+            const material = new THREE.SpriteMaterial({ map: texture });  
+            const sprite = new THREE.Sprite(material);  
+            sprite.scale.set(1, 1, 1);  
+            return sprite;  
+        }  
+  
+        // 添加地面数字  
+        for(let i = -5; i <= 5; i++) {  
+            if(i === 0) continue; // 原点不标  
+              
+            // X轴数字  
+            const spriteX = createTextSprite(i.toString(), "#ff3333");  
+            spriteX.position.set(i, 0.5, 0);  
+            scene.add(spriteX);  
+  
+            // Y轴数字 (实际Z) - 注意：3D中Z轴向屏幕外是正，向内是负。  
+            // 为了符合数学课本习惯（上北下南），我们将屏幕内设为Y的正方向？  
+            // 这里为了直观：屏幕向右是X+，屏幕向内是Y-(Z-)。  
+            // 让我们统一逻辑：为了像地图，我们定义：  
+            // X+ = 右, X- = 左  
+            // Z+ (前) = 我们的Y+, Z- (后) = 我们的Y-   
+              
+            const spriteY = createTextSprite(i.toString(), "#3366ff");  
+            spriteY.position.set(0, 0.5, i); // 放在Z轴上  
+            scene.add(spriteY);  
+        }  
+  
+        // 添加 X 和 Y 标签  
+        const labelX = createTextSprite("X", "red");  
+        labelX.position.set(5.5, 0.5, 0);  
+        labelX.scale.set(1.5, 1.5, 1.5);  
+        scene.add(labelX);  
+  
+        const labelY = createTextSprite("Y", "blue");  
+        labelY.position.set(0, 0.5, 5.5);   
+        labelY.scale.set(1.5, 1.5, 1.5);  
+        scene.add(labelY);  
+  
+        // --- 5. 角色 (小方) ---  
+        const playerGroup = new THREE.Group();  
+        scene.add(playerGroup);  
+  
+        // 身体  
+        const bodyGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);  
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xFFD700 }); // 金色  
+        const body = new THREE.Mesh(bodyGeo, bodyMat);  
+        body.position.y = 0.4;  
+        body.castShadow = true;  
+        playerGroup.add(body);  
+  
+        // 眼睛  
+        const eyeGeo = new THREE.BoxGeometry(0.1, 0.1, 0.05);  
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });  
+        const eyeLeft = new THREE.Mesh(eyeGeo, eyeMat);  
+        eyeLeft.position.set(-0.2, 0.5, 0.4);  
+        playerGroup.add(eyeLeft);  
+        const eyeRight = eyeLeft.clone();  
+        eyeRight.position.set(0.2, 0.5, 0.4);  
+        playerGroup.add(eyeRight);  
+  
+        // --- 6. 动画逻辑 ---  
+          
+        let targetPosition = new THREE.Vector3(0, 0, 0);  
+        let isMoving = false;  
+          
+        // 屏幕坐标转换  
+        const bubble = document.getElementById('bubble');  
+  
+        function updateBubble() {  
+            const vector = playerGroup.position.clone();  
+            vector.y += 1.2; // 在头顶  
+            vector.project(camera);  
+  
+            const x = (vector.x * .5 + .5) * window.innerWidth;  
+            const y = (-(vector.y * .5) + .5) * window.innerHeight;  
+  
+            bubble.style.display = 'block';  
+            bubble.style.left = `${x}px`;  
+            bubble.style.top = `${y}px`;  
+              
+            // 这里要反转一下Z的显示，因为在3D里我们用Z代替Y  
+            // 为了让教学更直观，我们假设 Z轴正方向 = Y轴正方向  
+            bubble.innerHTML = `( $${Math.round(playerGroup.position.x)}, $${Math.round(playerGroup.position.z)} )`;  
+        }  
+  
+        // 按钮点击事件  
+        document.getElementById('goBtn').addEventListener('click', () => {  
+            const xVal = parseInt(document.getElementById('inputX').value) || 0;  
+            const yVal = parseInt(document.getElementById('inputY').value) || 0;  
+              
+            // 限制范围  
+            const safeX = Math.max(-5, Math.min(5, xVal));  
+            const safeY = Math.max(-5, Math.min(5, yVal));  
+  
+            // 更新目标 (注意：输入的Y对应3D里的Z)  
+            targetPosition.set(safeX, 0, safeY);  
+            isMoving = true;  
+  
+            // 更新文字  
+            document.getElementById('message').innerHTML =   
+                `收到指令！<br>正在前往 <b>($${safeX}, $${safeY})</b>...<br>` +  
+                `<small>X走 $${safeX} 格，Y走 $${safeY} 格</small>`;  
+        });  
+  
+        // 渲染循环  
+        function animate() {  
+            requestAnimationFrame(animate);  
+              
+            controls.update();  
+  
+            if (isMoving) {  
+                // 平滑移动 (Lerp)  
+                const step = 0.05; // 速度  
+                playerGroup.position.x += (targetPosition.x - playerGroup.position.x) * step;  
+                playerGroup.position.z += (targetPosition.z - playerGroup.position.z) * step;  
+                  
+                // 简单的跳跃动画 (正弦波)  
+                const dist = playerGroup.position.distanceTo(targetPosition);  
+                if(dist > 0.05) {  
+                    // 移动时跳跃  
+                    playerGroup.position.y = Math.abs(Math.sin(Date.now() * 0.01)) * 0.5;  
+                    // 面向目标  
+                    playerGroup.lookAt(targetPosition.x, playerGroup.position.y, targetPosition.z);  
+                } else {  
+                    // 到达目标  
+                    playerGroup.position.set(targetPosition.x, 0, targetPosition.z);  
+                    playerGroup.rotation.set(0,0,0); // 摆正  
+                    isMoving = false;  
+                    document.getElementById('message').innerHTML = `✅ 我到了！<br>当前位置: <b>($${targetPosition.x}, $${targetPosition.z})</b>`;  
+                }  
+            }  
+  
+            updateBubble();  
+            renderer.render(scene, camera);  
+        }  
+  
+        // 窗口大小调整  
+        window.addEventListener('resize', () => {  
+            camera.aspect = window.innerWidth / window.innerHeight;  
+            camera.updateProjectionMatrix();  
+            renderer.setSize(window.innerWidth, window.innerHeight);  
+        });  
+  
+        animate();  
+    </script>  
+</body>  
+</html>  
