@@ -1,0 +1,405 @@
+<!DOCTYPE html>  
+<html lang="zh-CN">  
+<head>  
+    <meta charset="UTF-8">  
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">  
+    <title>神奇的立方体 - 趣味数学课</title>  
+    <style>  
+        body { margin: 0; overflow: hidden; font-family: 'Comic Sans MS', 'YouYuan', 'Microsoft YaHei', sans-serif; background-color: #E0F7FA; }  
+          
+        /* 侧边控制栏 */  
+        #sidebar {  
+            position: absolute;  
+            top: 0;  
+            left: 0;  
+            width: 320px;  
+            height: 100vh;  
+            background: rgba(255, 255, 255, 0.95);  
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);  
+            padding: 20px;  
+            box-sizing: border-box;  
+            overflow-y: auto;  
+            display: flex;  
+            flex-direction: column;  
+            gap: 15px;  
+        }  
+  
+        h1 { color: #FF6B6B; text-align: center; font-size: 24px; margin-top: 0;}  
+          
+        /* 仪表盘部分 */  
+        .panel {  
+            background: #fff;  
+            border: 2px solid #B2EBF2;  
+            border-radius: 15px;  
+            padding: 15px;  
+        }  
+  
+        .slider-group { display: flex; align-items: center; margin-bottom: 10px; }  
+        .slider-group label { width: 50px; font-weight: bold; color: #555; }  
+        input[type=range] { flex: 1; margin: 0 10px; cursor: pointer; }  
+        .val-display { font-weight: bold; color: #0097A7; width: 20px; text-align: center; }  
+  
+        /* 按钮样式 */  
+        .btn-grid {  
+            display: grid;  
+            grid-template-columns: 1fr 1fr;  
+            gap: 10px;  
+        }  
+  
+        button {  
+            padding: 10px;  
+            border: none;  
+            border-radius: 10px;  
+            cursor: pointer;  
+            font-size: 16px;  
+            font-weight: bold;  
+            transition: all 0.2s;  
+            color: white;  
+        }  
+  
+        button:hover { transform: scale(1.05); }  
+        button:active { transform: scale(0.95); }  
+  
+        .btn-face { background-color: #FF9800; }  
+        .btn-edge { background-color: #4CAF50; }  
+        .btn-vertex { background-color: #2196F3; }  
+        .btn-reset { background-color: #9E9E9E; grid-column: span 2; }  
+  
+        /* 教学信息显示 */  
+        #info-box {  
+            background: #FFF3E0;  
+            border: 2px dashed #FFB74D;  
+            padding: 15px;  
+            border-radius: 10px;  
+            font-size: 16px;  
+            line-height: 1.5;  
+            min-height: 100px;  
+        }  
+  
+        .highlight { color: #D84315; font-weight: bold; font-size: 18px; }  
+          
+        /* 体积计算公式展示 */  
+        #math-box {  
+            text-align: center;  
+            font-size: 20px;  
+            background: #E8F5E9;  
+            padding: 10px;  
+            border-radius: 10px;  
+            border: 2px solid #4CAF50;  
+        }  
+          
+        .math-formula { font-size: 24px; font-weight: bold; color: #2E7D32; }  
+  
+    </style>  
+    <script type="importmap">  
+        {  
+            "imports": {  
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",  
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"  
+            }  
+        }  
+    </script>  
+</head>  
+<body>  
+  
+    <div id="sidebar">  
+        <h1>🧊 立方体大解剖</h1>  
+          
+        <!-- 尺寸控制 -->  
+        <div class="panel">  
+            <p style="margin-top:0; font-weight:bold; color:#666;">1. 改变形状 (长宽高)</p>  
+            <div class="slider-group">  
+                <label>长:</label>  
+                <input type="range" id="rangeL" min="1" max="6" value="3">  
+                <span class="val-display" id="valL">3</span>  
+            </div>  
+            <div class="slider-group">  
+                <label>宽:</label>  
+                <input type="range" id="rangeW" min="1" max="6" value="2">  
+                <span class="val-display" id="valW">2</span>  
+            </div>  
+            <div class="slider-group">  
+                <label>高:</label>  
+                <input type="range" id="rangeH" min="1" max="6" value="3">  
+                <span class="val-display" id="valH">3</span>  
+            </div>  
+        </div>  
+  
+        <!-- 结构教学按钮 -->  
+        <div class="panel">  
+            <p style="margin-top:0; font-weight:bold; color:#666;">2. 认识结构 (点这里!)</p>  
+            <div class="btn-grid">  
+                <button class="btn-vertex" id="btnVertex">🔵 顶点</button>  
+                <button class="btn-edge" id="btnEdge">🟢 棱 (边)</button>  
+                <button class="btn-face" id="btnFace">🟠 面</button>  
+                <button class="btn-reset" id="btnReset">👁️不仅看结构，看体积</button>  
+            </div>  
+        </div>  
+  
+        <!-- 信息展示 -->  
+        <div id="info-box">  
+            👋 嗨！我是小立方。<br>  
+            拖动滑块改变我的身材，点击按钮认识我的身体构造吧！  
+        </div>  
+  
+        <!-- 体积公式 -->  
+        <div id="math-box">  
+            <div>体积公式: 长 × 宽 × 高</div>  
+            <div class="math-formula" id="formula">3 × 2 × 3 = 18</div>  
+            <div style="font-size: 14px; color: #666;">(也就是有 18 个小方块)</div>  
+        </div>  
+    </div>  
+  
+    <script type="module">  
+        import * as THREE from 'three';  
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';  
+  
+        // --- 1. 场景初始化 ---  
+        const scene = new THREE.Scene();  
+        scene.background = new THREE.Color(0xE0F7FA);  
+  
+        const camera = new THREE.PerspectiveCamera(45, (window.innerWidth - 320) / window.innerHeight, 0.1, 100);  
+        camera.position.set(8, 8, 12);  
+  
+        const renderer = new THREE.WebGLRenderer({ antialias: true });  
+        renderer.setSize(window.innerWidth - 320, window.innerHeight);  
+        renderer.shadowMap.enabled = true;  
+        document.body.appendChild(renderer.domElement);  
+          
+        // 调整 canvas 位置到右侧  
+        renderer.domElement.style.position = 'absolute';  
+        renderer.domElement.style.right = '0';  
+        renderer.domElement.style.top = '0';  
+  
+        // 灯光  
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);  
+        scene.add(ambientLight);  
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);  
+        dirLight.position.set(5, 10, 7);  
+        dirLight.castShadow = true;  
+        scene.add(dirLight);  
+  
+        // 控制器  
+        const controls = new OrbitControls(camera, renderer.domElement);  
+        controls.enableDamping = true;  
+  
+        // 地面网格  
+        const gridHelper = new THREE.GridHelper(20, 20, 0x888888, 0xbbbbbb);  
+        scene.add(gridHelper);  
+  
+        // --- 2. 核心逻辑变量 ---  
+        let currentL = 3;  
+        let currentW = 2;  
+        let currentH = 3;  
+          
+        // 存储3D对象的组  
+        const mainGroup = new THREE.Group(); // 存放所有方块  
+        const highlightGroup = new THREE.Group(); // 存放高亮部件  
+        scene.add(mainGroup);  
+        scene.add(highlightGroup);  
+  
+        // --- 3. 功能函数 ---  
+  
+        // 创建积木堆 (展示体积)  
+        function createBlocks(L, W, H) {  
+            // 清空旧的  
+            while(mainGroup.children.length > 0){   
+                mainGroup.remove(mainGroup.children[0]);   
+            }  
+  
+            const geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95); // 稍微留缝隙，方便数数  
+            const material = new THREE.MeshStandardMaterial({   
+                color: 0xFFEB3B,   
+                roughness: 0.1,  
+                metalness: 0.1  
+            });  
+  
+            // 为了让方块中心在原点附近，我们需要计算偏移量  
+            const offsetX = (L - 1) / 2;  
+            const offsetY = (H - 1) / 2;  
+            const offsetZ = (W - 1) / 2; // 注意：Z轴对应宽  
+  
+            for (let x = 0; x < L; x++) {  
+                for (let y = 0; y < H; y++) {  
+                    for (let z = 0; z < W; z++) {  
+                        const cube = new THREE.Mesh(geometry, material);  
+                        // 摆放位置 (从地面向上)  
+                        cube.position.set(x - offsetX, y + 0.5, z - offsetZ);  
+                          
+                        // 给每个方块加个黑色边框，这样数起来更清楚  
+                        const edges = new THREE.EdgesGeometry(geometry);  
+                        const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial( { color: 0xD3A600 } ) );  
+                        cube.add(line);  
+                          
+                        cube.castShadow = true;  
+                        cube.receiveShadow = true;  
+                        mainGroup.add(cube);  
+                    }  
+                }  
+            }  
+              
+            // 调整相机中心  
+            controls.target.set(0, H/2, 0);  
+        }  
+  
+        // 创建高亮结构 (面、棱、顶点)  
+        function showStructure(type) {  
+            highlightGroup.clear();  
+            const L = currentL;  
+            const W = currentW; // Z轴  
+            const H = currentH;  
+  
+            const halfL = L / 2;  
+            const halfH = H / 2;  
+            const halfW = W / 2;  
+            const centerY = H / 2;  
+  
+            if (type === 'vertex') {  
+                // 创建8个顶点  
+                const sphereGeo = new THREE.SphereGeometry(0.25, 16, 16);  
+                const sphereMat = new THREE.MeshStandardMaterial({ color: 0x2196F3, emissive: 0x1565C0 });  
+                  
+                const corners = [  
+                    [-halfL, 0, -halfW], [halfL, 0, -halfW], [-halfL, H, -halfW], [halfL, H, -halfW],  
+                    [-halfL, 0, halfW], [halfL, 0, halfW], [-halfL, H, halfW], [halfL, H, halfW]  
+                ];  
+  
+                corners.forEach(pos => {  
+                    const sphere = new THREE.Mesh(sphereGeo, sphereMat);  
+                    sphere.position.set(pos[0], pos[1], pos[2]);  
+                    highlightGroup.add(sphere);  
+                });  
+                updateInfo(`🔵 <b>顶点 (Vertex)</b><br>看那些蓝色的小球！<br>立方体一共有 <span class="highlight">8</span> 个顶点。<br>它们是角尖尖的地方。`);  
+            }  
+            else if (type === 'edge') {  
+                // 创建12条棱  
+                const edgeMat = new THREE.MeshStandardMaterial({ color: 0x4CAF50, emissive: 0x2E7D32 });  
+                const radius = 0.08;  
+  
+                // 辅助函数：画圆柱  
+                function createBar(len, x, y, z, rotAxis) {  
+                    const geo = new THREE.CylinderGeometry(radius, radius, len, 8);  
+                    const bar = new THREE.Mesh(geo, edgeMat);  
+                    bar.position.set(x, y, z);  
+                    if (rotAxis === 'z') bar.rotation.x = Math.PI / 2;  
+                    if (rotAxis === 'x') bar.rotation.z = Math.PI / 2;  
+                    highlightGroup.add(bar);  
+                }  
+  
+                // 4条高 (Y轴)  
+                createBar(H, -halfL, centerY, -halfW, 'y');  
+                createBar(H, halfL, centerY, -halfW, 'y');  
+                createBar(H, -halfL, centerY, halfW, 'y');  
+                createBar(H, halfL, centerY, halfW, 'y');  
+                  
+                // 4条长 (X轴)  
+                createBar(L, 0, 0, -halfW, 'x');  
+                createBar(L, 0, H, -halfW, 'x');  
+                createBar(L, 0, 0, halfW, 'x');  
+                createBar(L, 0, H, halfW, 'x');  
+  
+                // 4条宽 (Z轴)  
+                createBar(W, -halfL, 0, 0, 'z');  
+                createBar(W, halfL, 0, 0, 'z');  
+                createBar(W, -halfL, H, 0, 'z');  
+                createBar(W, halfL, H, 0, 'z');  
+  
+                updateInfo(`🟢 <b>棱 (Edge)</b><br>看这些绿色的棒子！<br>立方体一共有 <span class="highlight">12</span> 条棱。<br>它们是面和面连接的线。`);  
+            }  
+            else if (type === 'face') {  
+                // 创建6个面  
+                const faceMat = new THREE.MeshBasicMaterial({   
+                    color: 0xFF9800,   
+                    transparent: true,   
+                    opacity: 0.4,  
+                    side: THREE.DoubleSide  
+                });  
+  
+                function createPlane(w, h, x, y, z, rotX, rotY) {  
+                    const geo = new THREE.PlaneGeometry(w, h);  
+                    const plane = new THREE.Mesh(geo, faceMat);  
+                    plane.position.set(x, y, z);  
+                    if(rotX) plane.rotation.x = rotX;  
+                    if(rotY) plane.rotation.y = rotY;  
+                    // 加一个边框  
+                    const border = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({color:0xFF6D00}));  
+                    plane.add(border);  
+                    highlightGroup.add(plane);  
+                }  
+  
+                // 前后 (Z)  
+                createPlane(L, H, 0, centerY, halfW + 0.01, 0, 0);  
+                createPlane(L, H, 0, centerY, -halfW - 0.01, 0, 0);  
+                // 左右 (X)  
+                createPlane(W, H, -halfL - 0.01, centerY, 0, 0, Math.PI/2);  
+                createPlane(W, H, halfL + 0.01, centerY, 0, 0, Math.PI/2);  
+                // 上下 (Y)  
+                createPlane(L, W, 0, H + 0.01, 0, Math.PI/2, 0);  
+                createPlane(L, W, 0, 0 - 0.01, 0, Math.PI/2, 0);  
+  
+                updateInfo(`🟠 <b>面 (Face)</b><br>看这些橘色的玻璃片！<br>立方体一共有 <span class="highlight">6</span> 个面。<br>它们是平平的表面。`);  
+            }  
+        }  
+  
+        function updateInfo(html) {  
+            document.getElementById('info-box').innerHTML = html;  
+        }  
+  
+        function updateAll() {  
+            // 1. 更新文本  
+            document.getElementById('valL').innerText = currentL;  
+            document.getElementById('valW').innerText = currentW;  
+            document.getElementById('valH').innerText = currentH;  
+              
+            const volume = currentL * currentW * currentH;  
+            document.getElementById('formula').innerText = `$${currentL} × $${currentW} × $${currentH} = $${volume}`;  
+  
+            // 2. 重新生成积木  
+            createBlocks(currentL, currentW, currentH);  
+              
+            // 3. 如果有高亮，清除掉，回到默认状态  
+            highlightGroup.clear();  
+            document.getElementById('info-box').innerHTML = "📦 形状变啦！<br>你可以数一数，现在一共有 <span class='highlight'>" + volume + "</span> 个小积木哦。<br>这就叫 <b>体积</b>。";  
+        }  
+  
+        // --- 4. 事件监听 ---  
+          
+        document.getElementById('rangeL').addEventListener('input', (e) => { currentL = parseInt(e.target.value); updateAll(); });  
+        document.getElementById('rangeW').addEventListener('input', (e) => { currentW = parseInt(e.target.value); updateAll(); });  
+        document.getElementById('rangeH').addEventListener('input', (e) => { currentH = parseInt(e.target.value); updateAll(); });  
+  
+        document.getElementById('btnVertex').addEventListener('click', () => showStructure('vertex'));  
+        document.getElementById('btnEdge').addEventListener('click', () => showStructure('edge'));  
+        document.getElementById('btnFace').addEventListener('click', () => showStructure('face'));  
+        document.getElementById('btnReset').addEventListener('click', () => {  
+            highlightGroup.clear();  
+            updateInfo("✨ 变回积木模式！<br>每个小黄块代表体积为 1 的单位。<br>总数就是体积。");  
+        });  
+  
+        window.addEventListener('resize', () => {  
+            camera.aspect = (window.innerWidth - 320) / window.innerHeight;  
+            camera.updateProjectionMatrix();  
+            renderer.setSize(window.innerWidth - 320, window.innerHeight);  
+        });  
+  
+        // --- 5. 启动 ---  
+        updateAll();  
+  
+        function animate() {  
+            requestAnimationFrame(animate);  
+            controls.update();  
+              
+            // 让高亮部分稍微动一下，吸引注意力  
+            if (highlightGroup.children.length > 0) {  
+                // 简单的呼吸效果  
+                const scale = 1 + Math.sin(Date.now() * 0.005) * 0.02;  
+                highlightGroup.scale.set(scale, scale, scale);  
+            }  
+  
+            renderer.render(scene, camera);  
+        }  
+        animate();  
+  
+    </script>  
+</body>  
+</html>  
